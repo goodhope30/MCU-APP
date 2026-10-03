@@ -1,0 +1,13 @@
+# Android Studio / IntelliJ project files
+*.iml
+.idea/
+.gradle/
+/local.properties
+/.idea
+/.gradle
+/build/
+**/build/
+.DS_Store
+/captures/
+.externalNativeBuild/
+.cxx/
