@@ -1,0 +1,376 @@
+package com.mcu.union;
+
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.os.Build;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.Window;
+import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Set;
+import java.util.UUID;
+
+public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MCU-APP";
+    private static final UUID SPP_UUID = UUID.fromString("00001101-0000-0000-8000-00805F9B34FB");
+
+    private WebView webView;
+    private BluetoothAdapter bluetoothAdapter;
+    private BluetoothSocket bluetoothSocket;
+    private ConnectedThread connectedThread;
+    private String connectedDeviceName = "None";
+
+    @SuppressLint("SetJavaScriptEnabled")
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        Window window = getWindow();
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.setStatusBarColor(Color.parseColor("#07111f"));
+        }
+
+        webView = new WebView(this);
+        setContentView(webView);
+
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setBuiltInZoomControls(false);
+        settings.setSupportZoom(false);
+        settings.setDatabaseEnabled(true);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(true);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+
+        webView.setWebViewClient(new WebViewClient());
+        webView.setBackgroundColor(Color.parseColor("#07111f"));
+        webView.addJavascriptInterface(new AppBridge(), "AndroidBridge");
+        webView.loadUrl("file:///android_asset/index.html");
+
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        ensureBluetoothPermissions();
+    }
+
+    @Override
+    protected void onDestroy() {
+        disconnectDevice();
+        super.onDestroy();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    private void ensureBluetoothPermissions() {
+        if (bluetoothAdapter == null) {
+            notifyJs("window.setHardwareStatus('Bluetooth not available on this device');");
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, 101);
+            }
+        } else {
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN}, 101);
+            }
+        }
+    }
+
+    private void notifyJs(String js) {
+        if (webView != null) {
+            webView.post(() -> webView.evaluateJavascript(js, null));
+        }
+    }
+
+    private void updateHardwareStatus(String status) {
+        notifyJs("window.updateHardwareStatus('" + status.replace("'", "\\'") + "');");
+    }
+
+    private void updateDeviceList() {
+        if (bluetoothAdapter == null) return;
+
+        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+        StringBuilder jsonBuilder = new StringBuilder();
+        jsonBuilder.append("[");
+        boolean first = true;
+
+        for (BluetoothDevice device : pairedDevices) {
+            if (!first) jsonBuilder.append(",");
+            first = false;
+            jsonBuilder.append("{\"name\":\"")
+                    .append(device.getName() == null ? "Unknown" : device.getName().replace("\"", "\\\""))
+                    .append("\",\"address\":\"")
+                    .append(device.getAddress())
+                    .append("\"}");
+        }
+        jsonBuilder.append("]");
+
+        final String json = jsonBuilder.toString();
+        notifyJs("window.setPairedDevices(" + json + ");");
+    }
+
+    private void ensureBluetoothEnabled() {
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "Bluetooth is not available on this device", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!bluetoothAdapter.isEnabled()) {
+            Toast.makeText(this, "Please enable Bluetooth on your device", Toast.LENGTH_SHORT).show();
+            return;
+        }
+    }
+
+    public void connectToDevice(String address) {
+        if (bluetoothAdapter == null) {
+            updateHardwareStatus("Bluetooth unavailable");
+            return;
+        }
+
+        ensureBluetoothEnabled();
+
+        try {
+            BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);
+            if (device == null) {
+                updateHardwareStatus("Device not found");
+                return;
+            }
+
+            disconnectDevice();
+
+            bluetoothSocket = device.createRfcommSocketToServiceRecord(SPP_UUID);
+            bluetoothSocket.connect();
+            connectedDeviceName = device.getName() == null ? "HC-05" : device.getName();
+            connectedThread = new ConnectedThread(bluetoothSocket);
+            connectedThread.start();
+
+            updateHardwareStatus("Connected to " + connectedDeviceName);
+            notifyJs("window.setConnectedDeviceName('" + connectedDeviceName + "');");
+            notifyJs("window.addHistoryEntry('Connected to " + connectedDeviceName + "');");
+        } catch (Exception e) {
+            Log.e(TAG, "Bluetooth connect failed", e);
+            updateHardwareStatus("Connection failed");
+            notifyJs("window.addHistoryEntry('Connection failed: " + e.getMessage().replace("'", "\\'") + "');");
+            Toast.makeText(this, "Bluetooth connection failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void disconnectDevice() {
+        if (connectedThread != null) {
+            connectedThread.cancel();
+            connectedThread = null;
+        }
+
+        if (bluetoothSocket != null) {
+            try {
+                bluetoothSocket.close();
+            } catch (IOException ignored) {
+            }
+            bluetoothSocket = null;
+        }
+
+        connectedDeviceName = "None";
+        notifyJs("window.setConnectedDeviceName('None');");
+        updateHardwareStatus("Disconnected");
+        notifyJs("window.addHistoryEntry('Disconnected from hardware');");
+    }
+
+    public void sendCommand(String command) {
+        if (connectedThread == null) {
+            Toast.makeText(this, "No device connected", Toast.LENGTH_SHORT).show();
+            updateHardwareStatus("No device connected");
+            notifyJs("window.addHistoryEntry('Command skipped: no device connected');");
+            return;
+        }
+
+        String normalized = command == null ? "" : command.trim();
+        if (normalized.isEmpty()) {
+            return;
+        }
+
+        connectedThread.write((normalized + "\n").getBytes());
+        updateHardwareStatus("Sent: " + normalized);
+        notifyJs("window.addHistoryEntry('TX: " + normalized.replace("'", "\\'") + "');");
+    }
+
+    public String getPairedDeviceJson() {
+        if (bluetoothAdapter == null) return "[]";
+        Set<BluetoothDevice> devices = bluetoothAdapter.getBondedDevices();
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        boolean first = true;
+        for (BluetoothDevice device : devices) {
+            if (!first) builder.append(",");
+            first = false;
+            builder.append("{\"name\":\"")
+                    .append(device.getName() == null ? "Unknown" : device.getName().replace("\"", "\\\""))
+                    .append("\",\"address\":\"")
+                    .append(device.getAddress())
+                    .append("\"}");
+        }
+        builder.append("]");
+        return builder.toString();
+    }
+
+    public class AppBridge {
+        @JavascriptInterface
+        public void showToast(String msg) {
+            Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
+        }
+
+        @JavascriptInterface
+        public void connectSystem() {
+            updateHardwareStatus("Connecting...");
+            if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
+                notifyJs("window.updateConnectionState('Connected');");
+                updateDeviceList();
+                updateHardwareStatus("Ready to connect");
+            } else {
+                notifyJs("window.updateConnectionState('Disconnected');");
+                updateHardwareStatus("Bluetooth disabled");
+            }
+        }
+
+        @JavascriptInterface
+        public void triggerCycle() {
+            if (connectedThread == null) {
+                Toast.makeText(MainActivity.this, "Connect a device first", Toast.LENGTH_SHORT).show();
+                updateHardwareStatus("No hardware connected");
+                notifyJs("window.addHistoryEntry('Cycle skipped: no device connected');");
+                return;
+            }
+            sendCommand("START");
+            notifyJs("window.runCycle();");
+        }
+
+        @JavascriptInterface
+        public void togglePower() {
+            if (connectedThread == null) {
+                Toast.makeText(MainActivity.this, "Connect a device first", Toast.LENGTH_SHORT).show();
+                updateHardwareStatus("No hardware connected");
+                notifyJs("window.addHistoryEntry('Power toggle skipped: no device connected');");
+                return;
+            }
+            sendCommand("POWER");
+            notifyJs("window.togglePowerState();");
+        }
+
+        @JavascriptInterface
+        public void connectDevice(String address) {
+            if (address == null || address.trim().isEmpty()) {
+                Toast.makeText(MainActivity.this, "Please enter a Bluetooth address", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            connectToDevice(address.trim());
+        }
+
+        @JavascriptInterface
+        public void disconnectDevice() {
+            MainActivity.this.disconnectDevice();
+        }
+
+        @JavascriptInterface
+        public void sendCommand(String command) {
+            MainActivity.this.sendCommand(command);
+        }
+
+        @JavascriptInterface
+        public String getPairedDevices() {
+            return getPairedDeviceJson();
+        }
+
+        @JavascriptInterface
+        public void refreshHardware() {
+            ensureBluetoothEnabled();
+            updateDeviceList();
+            notifyJs("window.addHistoryEntry('Hardware refreshed');");
+        }
+    }
+
+    private class ConnectedThread extends Thread {
+        private final BluetoothSocket socket;
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+
+        ConnectedThread(BluetoothSocket socket) throws IOException {
+            this.socket = socket;
+            this.inputStream = socket.getInputStream();
+            this.outputStream = socket.getOutputStream();
+        }
+
+        @Override
+        public void run() {
+            byte[] buffer = new byte[1024];
+            int bytes;
+
+            while (true) {
+                try {
+                    bytes = inputStream.read(buffer);
+                    String data = new String(buffer, 0, bytes).trim();
+                    if (!data.isEmpty()) {
+                        final String message = data;
+                        notifyJs("window.onHardwareMessage('" + message.replace("'", "\\'") + "');");
+                        notifyJs("window.addHistoryEntry('RX: " + message.replace("'", "\\'") + "');");
+                    }
+                } catch (IOException e) {
+                    Log.e(TAG, "Bluetooth read error", e);
+                    updateHardwareStatus("Disconnected");
+                    notifyJs("window.addHistoryEntry('Bluetooth session closed');");
+                    break;
+                }
+            }
+        }
+
+        void write(byte[] bytes) {
+            try {
+                outputStream.write(bytes);
+                outputStream.flush();
+            } catch (IOException e) {
+                Log.e(TAG, "Bluetooth write error", e);
+                updateHardwareStatus("Write failed");
+                notifyJs("window.addHistoryEntry('Write failed');");
+            }
+        }
+
+        void cancel() {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+            }
+        }
+    }
+}
