@@ -2,85 +2,626 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MCU App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MCU Control Center</title>
     <style>
         :root {
-            --bg: #0f172a;
-            --panel: #111827;
-            --primary: #1e3a8a;
-            --text: #e5e7eb;
-            --muted: #cbd5e1;
-            --accent: #60a5fa;
+            --bg: #07111f;
+            --bg-2: #0d1b2d;
+            --panel: rgba(15, 23, 42, 0.92);
+            --panel-strong: #111c2d;
+            --card: rgba(17, 24, 39, 0.95);
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #e5edf9;
+            --muted: #9aaec7;
+            --primary: #60a5fa;
+            --primary-strong: #2563eb;
+            --success: #34d399;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --shadow: rgba(2, 6, 23, 0.55);
         }
 
         * {
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background: radial-gradient(circle at top, #10213d 0%, var(--bg) 38%, #060d18 100%);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
         }
 
         body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(180deg, var(--bg), #111827);
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
-            padding: 24px;
+            padding: 22px 18px 28px;
         }
 
-        .card {
-            width: 100%;
-            max-width: 520px;
-            background: rgba(17, 24, 39, 0.95);
-            border: 1px solid rgba(96, 165, 250, 0.25);
-            border-radius: 20px;
-            padding: 28px 24px;
-            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+        .shell {
+            max-width: 960px;
+            margin: 0 auto;
         }
 
-        h1 {
-            margin-top: 0;
-            color: #ffffff;
-            font-size: 2rem;
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 20px;
+            padding: 4px 4px 12px;
         }
 
-        p {
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-mark::before,
+        .brand-mark::after {
+            content: "";
+            position: absolute;
+            background: rgba(255, 255, 255, 0.65);
+            border-radius: 50%;
+        }
+
+        .brand-mark::before {
+            width: 16px;
+            height: 16px;
+            top: 9px;
+            left: 11px;
+        }
+
+        .brand-mark::after {
+            width: 10px;
+            height: 10px;
+            bottom: 8px;
+            right: 9px;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 1.15rem;
+            letter-spacing: 0.04em;
+            font-weight: 700;
+        }
+
+        .brand small {
+            display: block;
             color: var(--muted);
-            line-height: 1.6;
-            margin-bottom: 18px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-size: 0.68rem;
+            margin-top: 2px;
         }
 
-        .badge {
-            display: inline-block;
-            background: var(--primary);
-            color: white;
-            font-weight: bold;
-            padding: 8px 14px;
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(52, 211, 153, 0.35);
+            background: rgba(16, 185, 129, 0.09);
+            padding: 8px 12px;
             border-radius: 999px;
-            margin-bottom: 14px;
+            color: #c9f9df;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.18);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.78), rgba(15, 23, 42, 0.96));
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            padding: 22px 20px 18px;
+            box-shadow: 0 18px 38px var(--shadow);
+        }
+
+        .hero-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 700;
+            color: #bfd8ff;
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: clamp(1.5rem, 4vw, 2.3rem);
+            line-height: 1.15;
+        }
+
+        .hero-sub {
+            margin-top: 10px;
+            color: #d9e6fb;
+            max-width: 620px;
+            opacity: 0.9;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 18px;
         }
 
         button {
-            width: 100%;
-            padding: 14px 18px;
-            border: none;
+            appearance: none;
+            border: 0;
             border-radius: 12px;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
-            color: white;
-            font-size: 1rem;
-            font-weight: bold;
+            padding: 12px 16px;
+            font-weight: 700;
+            font-size: 0.9rem;
             cursor: pointer;
+            transition: transform 0.18s ease, opacity 0.18s ease;
+        }
+
+        button:active {
+            transform: translateY(1px) scale(0.99);
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, var(--primary), #7dd3fc);
+            color: #06131f;
+            box-shadow: 0 10px 20px rgba(96, 165, 250, 0.28);
+        }
+
+        .secondary-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: var(--text);
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(140px, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .metric {
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 16px 14px;
+            min-height: 110px;
+        }
+
+        .metric .label {
+            color: var(--muted);
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .value {
+            font-size: clamp(1.45rem, 3vw, 2rem);
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .trend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .trend .up {
+            color: var(--success);
+        }
+
+        .trend .down {
+            color: var(--danger);
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 18px;
+            margin-top: 18px;
+        }
+
+        .panel {
+            background: rgba(15, 23, 42, 0.78);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            padding: 18px;
+            box-shadow: 0 14px 30px rgba(2, 6, 23, 0.24);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .panel-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #dfeafc;
+        }
+
+        .panel-link {
+            color: var(--primary);
+            font-size: 0.74rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 700;
+        }
+
+        .chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            height: 180px;
+            padding-top: 12px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(96,165,250,0.03), rgba(96,165,250,0.12));
+            border: 1px solid rgba(148,163,184,0.1);
+            padding: 18px 10px 6px;
+        }
+
+        .bar-wrap {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 100%;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 32px;
+            border-radius: 10px 10px 0 0;
+            background: linear-gradient(180deg, #93c5fd 0%, var(--primary-strong) 100%);
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.25);
+            min-height: 10%;
+        }
+
+        .stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(148, 163, 184, 0.04);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+        }
+
+        .status-row strong {
+            font-size: 0.9rem;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 62px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 6px 10px;
+        }
+
+        .tag.success {
+            background: rgba(52, 211, 153, 0.12);
+            color: #c9f9df;
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+
+        .tag.warning {
+            background: rgba(251, 191, 36, 0.12);
+            color: #fde9b1;
+            border: 1px solid rgba(251, 191, 36, 0.25);
+        }
+
+        .tag.danger {
+            background: rgba(248, 113, 113, 0.12);
+            color: #f9c5c5;
+            border: 1px solid rgba(248, 113, 113, 0.25);
+        }
+
+        .mini-list {
+            list-style: none;
+            margin: 8px 0 0;
+            padding: 0;
+            display: grid;
+            gap: 12px;
+        }
+
+        .mini-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(148, 163, 184, 0.09);
+            border-radius: 12px;
+            color: var(--muted);
+        }
+
+        .mini-list span:last-child {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .log-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 10px;
+        }
+
+        .log-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(148, 163, 184, 0.04);
+            border: 1px solid rgba(148, 163, 184, 0.08);
+        }
+
+        .log-bullet {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+        }
+
+        .log-list li:nth-child(2) .log-bullet { background: var(--warning); box-shadow: 0 0 0 4px rgba(251,191,36,0.12); }
+        .log-list li:nth-child(3) .log-bullet { background: var(--primary); box-shadow: 0 0 0 4px rgba(96,165,250,0.12); }
+
+        .log-time {
+            margin-left: auto;
+            color: var(--muted);
+            font-size: 0.72rem;
+        }
+
+        @media (max-width: 760px) {
+            .metrics {
+                grid-template-columns: repeat(2, minmax(140px, 1fr));
+            }
+
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 460px) {
+            body {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+
+            .topbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="badge">MCU APP</div>
-        <h1>Welcome</h1>
-        <p>This page is loaded from the Android app's local assets and is ready to be expanded with your own MCU logic, UI screens, or dashboard content.</p>
-        <button onclick="alert('MCU app is running on Android!')">Tap to test</button>
+    <div class="shell">
+        <div class="topbar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true"></div>
+                <div>
+                    <h1>MCU Control</h1>
+                    <small>Operational Suite</small>
+                </div>
+            </div>
+
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                System Online
+            </div>
+        </div>
+
+        <section class="hero">
+            <div class="hero-row">
+                <div>
+                    <span class="eyebrow">Mission status</span>
+                    <h2>System health is stable.</h2>
+                    <div class="hero-sub">
+                        Intake, synchronization, and hardware checks are running within target thresholds.
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-actions">
+                <button class="primary-btn" type="button">Start Cycle</button>
+                <button class="secondary-btn" type="button">Diagnostics</button>
+            </div>
+
+            <div class="metrics">
+                <div class="metric">
+                    <div class="label">CPU</div>
+                    <div id="cpuValue" class="value">63%</div>
+                    <div class="trend"><span class="up">▲ 4.2%</span> vs last hour</div>
+                </div>
+
+                <div class="metric">
+                    <div class="label">Memory</div>
+                    <div id="memoryValue" class="value">74%</div>
+                    <div class="trend"><span class="down">▼ 1.8%</span> vs last hour</div>
+                </div>
+
+                <div class="metric">
+                    <div class="label">Thermal</div>
+                    <div id="tempValue" class="value">44°C</div>
+                    <div class="trend"><span class="up">▲ 2.1°C</span> current rise</div>
+                </div>
+
+                <div class="metric">
+                    <div class="label">Uptime</div>
+                    <div id="uptimeValue" class="value">19h 42m</div>
+                    <div class="trend"><span class="up">▲ 1.4%</span> stability</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="content">
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>Performance</h3>
+                    <span class="panel-link">View</span>
+                </div>
+
+                <div class="chart" aria-label="Performance chart">
+                    <div class="bar-wrap"><div class="bar" style="height: 32%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 46%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 58%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 63%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 72%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 81%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 76%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 90%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 86%;"></div></div>
+                    <div class="bar-wrap"><div class="bar" style="height: 94%;"></div></div>
+                </div>
+            </section>
+
+            <aside class="panel">
+                <div class="panel-header">
+                    <h3>System</h3>
+                    <span class="panel-link">Live</span>
+                </div>
+
+                <div class="stack">
+                    <div class="status-row">
+                        <strong>Core bus</strong>
+                        <span class="tag success">Stable</span>
+                    </div>
+
+                    <div class="status-row">
+                        <strong>Signal lock</strong>
+                        <span class="tag success">Good</span>
+                    </div>
+
+                    <div class="status-row">
+                        <strong>Power draw</strong>
+                        <span class="tag warning">Watch</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <div class="content" style="margin-top: 18px;">
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>Runtime Details</h3>
+                    <span class="panel-link">Updated</span>
+                </div>
+
+                <ul class="mini-list">
+                    <li><span>Firmware</span><span>v2.8.4</span></li>
+                    <li><span>Network</span><span>Connected</span></li>
+                    <li><span>Sync queue</span><span>12 tasks</span></li>
+                    <li><span>Last reboot</span><span>2 days ago</span></li>
+                </ul>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>Activity Log</h3>
+                    <span class="panel-link">Trail</span>
+                </div>
+
+                <ul class="log-list">
+                    <li>
+                        <span class="log-bullet"></span>
+                        <span>Core cycle completed</span>
+                        <span class="log-time">9:42</span>
+                    </li>
+                    <li>
+                        <span class="log-bullet"></span>
+                        <span>Diagnostics scan passed</span>
+                        <span class="log-time">9:21</span>
+                    </li>
+                    <li>
+                        <span class="log-bullet"></span>
+                        <span>Telemetry synchronized</span>
+                        <span class="log-time">8:59</span>
+                    </li>
+                </ul>
+            </section>
+        </div>
     </div>
+
+    <script>
+        function updateMetric(elementId, start, end, step, suffix) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            let current = start;
+            const interval = setInterval(() => {
+                current += step;
+                if ((step > 0 && current >= end) || (step < 0 && current <= end)) {
+                    current = end;
+                    clearInterval(interval);
+                }
+                el.textContent = current + suffix;
+            }, 140);
+        }
+
+        updateMetric('cpuValue', 58, 63, 1, '%');
+        updateMetric('memoryValue', 71, 74, 1, '%');
+        updateMetric('tempValue', 40, 44, 1, '°C');
+        updateMetric('uptimeValue', 18, 19, 1, 'h 42m');
+    </script>
 </body>
 </html>
