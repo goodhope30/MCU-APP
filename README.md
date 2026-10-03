@@ -1,37 +1,559 @@
-# MCU-APP Android Project
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MCU Control Center</title>
+    <style>
+        :root {
+            --bg: #07111f;
+            --bg-2: #0d1b2d;
+            --panel: rgba(15, 23, 42, 0.92);
+            --panel-strong: #111c2d;
+            --card: rgba(17, 24, 39, 0.95);
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #e5edf9;
+            --muted: #9aaec7;
+            --primary: #60a5fa;
+            --primary-strong: #2563eb;
+            --success: #34d399;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --shadow: rgba(2, 6, 23, 0.55);
+        }
 
-This project now includes real hardware control support for Bluetooth Classic serial MCU modules such as HC-05 and HC-06.
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, #10213d 0%, var(--bg) 38%, #060d18 100%); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
+        body { min-height: 100vh; padding: 22px 18px 28px; padding-bottom: 90px; }
+        .shell { max-width: 980px; margin: 0 auto; }
 
-## Features
-- Android app shell with the dashboard flow
-- Bluetooth Classic connection to MCU hardware
-- Device pairing list and manual MAC input
-- Command actions: START, STATUS, POWER, STOP
-- JavaScript-to-Android bridge for hardware control
-- Multi-page dashboard: dashboard, hardware, alerts, settings
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 20px; padding: 4px 4px 12px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-mark { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-strong)); position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45); }
+        .brand-mark::before, .brand-mark::after { content: ""; position: absolute; background: rgba(255,255,255,0.7); border-radius: 50%; }
+        .brand-mark::before { width: 16px; height: 16px; top: 9px; left: 11px; }
+        .brand-mark::after { width: 10px; height: 10px; bottom: 8px; right: 9px; }
+        .brand h1 { margin: 0; font-size: 1.15rem; letter-spacing: 0.04em; font-weight: 700; }
+        .brand small { display: block; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.68rem; margin-top: 2px; }
 
-## Supported hardware
-This implementation targets standard Bluetooth serial modules commonly used with Arduino/MCU boards.
+        .status-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(52, 211, 153, 0.35); background: rgba(16, 185, 129, 0.09); padding: 8px 12px; border-radius: 999px; color: #c9f9df; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 700; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.18); }
 
-Typical connection flow:
-1. Pair the MCU module in Android Bluetooth settings.
-2. Enter the paired device MAC address in the app.
-3. Tap Connect.
-4. Use the command buttons to send commands to the MCU device.
+        .hero { background: linear-gradient(135deg, rgba(30, 58, 138, 0.78), rgba(15, 23, 42, 0.96)); border: 1px solid var(--line); border-radius: 24px; padding: 22px 20px 18px; box-shadow: 0 18px 38px var(--shadow); }
+        .hero-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+        .eyebrow { display: inline-block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; color: #bfd8ff; margin-bottom: 8px; }
+        h2 { margin: 0; font-size: clamp(1.5rem, 4vw, 2.3rem); line-height: 1.15; }
+        .hero-sub { margin-top: 10px; color: #d9e6fb; max-width: 620px; opacity: 0.9; }
 
-## Notes
-The exact command protocol depends on your MCU firmware. The app sends ASCII commands like:
-- START
-- STATUS
-- POWER
-- STOP
+        .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+        button { appearance: none; border: 0; border-radius: 12px; padding: 12px 16px; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: transform 0.18s ease, opacity 0.18s ease; }
+        button:active { transform: translateY(1px) scale(0.99); }
+        .primary-btn { background: linear-gradient(135deg, var(--primary), #7dd3fc); color: #06131f; box-shadow: 0 10px 20px rgba(96, 165, 250, 0.28); }
+        .secondary-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(148,163,184,0.2); color: var(--text); }
+        .danger-btn { background: linear-gradient(135deg, #f87171, #fca5a5); color: #1f0d12; }
 
-You can adjust the command strings in the app or change the firmware to match your board.
+        .metrics { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 14px; margin-top: 18px; }
+        .metric { background: rgba(15, 23, 42, 0.72); border: 1px solid var(--line); border-radius: 18px; padding: 16px 14px; min-height: 110px; }
+        .metric .label { color: var(--muted); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+        .value { font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 800; margin-bottom: 6px; }
+        .trend { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--muted); }
+        .trend .up { color: var(--success); }
+        .trend .down { color: var(--danger); }
 
-## Run steps
-1. Open the repo in Android Studio.
-2. Let Gradle sync complete.
-3. Select an emulator/device.
-4. Press Run.
+        .content { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; margin-top: 18px; }
+        .panel { background: rgba(15, 23, 42, 0.78); border: 1px solid var(--line); border-radius: 22px; padding: 18px; box-shadow: 0 14px 30px rgba(2, 6, 23, 0.24); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .panel-header h3 { margin: 0; font-size: 1rem; letter-spacing: 0.04em; text-transform: uppercase; color: #dfeafc; }
+        .panel-link { color: var(--primary); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; cursor: pointer; }
 
-The app loads a local HTML dashboard and provides real hardware connection controls.
+        .chart { display: flex; align-items: flex-end; gap: 10px; height: 180px; padding-top: 12px; border-radius: 16px; background: linear-gradient(180deg, rgba(96,165,250,0.03), rgba(96,165,250,0.12)); border: 1px solid rgba(148,163,184,0.1); padding: 18px 10px 6px; }
+        .bar-wrap { flex: 1; display: flex; justify-content: center; align-items: flex-end; height: 100%; }
+        .bar { width: 100%; max-width: 32px; border-radius: 10px 10px 0 0; background: linear-gradient(180deg, #93c5fd 0%, var(--primary-strong) 100%); box-shadow: 0 10px 22px rgba(37, 99, 235, 0.25); min-height: 10%; }
+
+        .stack { display: grid; gap: 12px; }
+        .status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(148,163,184,0.04); border: 1px solid rgba(148,163,184,0.12); }
+        .status-row strong { font-size: 0.9rem; }
+        .tag { display: inline-flex; align-items: center; justify-content: center; min-width: 62px; border-radius: 999px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 10px; }
+        .tag.success { background: rgba(52,211,153,0.12); color: #c9f9df; border: 1px solid rgba(52,211,153,0.3); }
+        .tag.warning { background: rgba(251,191,36,0.12); color: #fde9b1; border: 1px solid rgba(251,191,36,0.25); }
+        .tag.danger { background: rgba(248,113,113,0.12); color: #f9c5c5; border: 1px solid rgba(248,113,113,0.25); }
+
+        .mini-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 12px; }
+        .mini-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(148,163,184,0.09); border-radius: 12px; color: var(--muted); }
+        .mini-list span:last-child { color: var(--text); font-weight: 700; }
+
+        .log-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+        .log-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(148,163,184,0.04); border: 1px solid rgba(148,163,184,0.08); }
+        .log-bullet { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px rgba(52,211,153,0.12); }
+        .log-list li:nth-child(2) .log-bullet { background: var(--warning); box-shadow: 0 0 0 4px rgba(251,191,36,0.12); }
+        .log-list li:nth-child(3) .log-bullet { background: var(--primary); box-shadow: 0 0 0 4px rgba(96,165,250,0.12); }
+        .log-time { margin-left: auto; color: var(--muted); font-size: 0.72rem; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+        .device-card { padding: 14px; border-radius: 14px; background: rgba(148,163,184,0.04); border: 1px solid rgba(148,163,184,0.1); }
+        .device-card strong { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .device-card .big { font-size: 1.25rem; font-weight: 800; }
+        .device-card .sub { color: var(--muted); margin-top: 4px; font-size: 0.8rem; }
+
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(7, 17, 31, 0.96); border-top: 1px solid var(--line); display: flex; justify-content: space-around; align-items: center; padding: 8px 0; backdrop-filter: blur(10px); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 12px; border-radius: 12px; background: transparent; border: none; color: var(--muted); cursor: pointer; transition: all 0.2s ease; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+        .nav-item.active { color: var(--primary); background: rgba(96, 165, 250, 0.1); }
+        .nav-icon { font-size: 1.3rem; }
+
+        .settings-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
+        .setting-item { background: rgba(15, 23, 42, 0.72); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+        .setting-item h4 { margin: 0 0 8px 0; font-size: 0.95rem; color: var(--text); }
+        .setting-item p { margin: 0; color: var(--muted); font-size: 0.8rem; }
+        .setting-item input, .setting-item select { width: 100%; margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: 0.9rem; }
+        .setting-item input:focus, .setting-item select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.1); }
+
+        .device-list { display: grid; gap: 12px; margin-top: 16px; }
+        .device-item { background: rgba(15, 23, 42, 0.72); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; }
+        .device-item-info h4 { margin: 0; font-size: 0.95rem; color: var(--text); }
+        .device-item-info p { margin: 4px 0 0 0; color: var(--muted); font-size: 0.8rem; }
+        .device-item-status { display: flex; align-items: center; gap: 8px; }
+        .device-item-status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); }
+
+        .alert-list { display: grid; gap: 12px; margin-top: 16px; }
+        .alert-item { background: rgba(15, 23, 42, 0.72); border-left: 4px solid var(--warning); border-radius: 10px; padding: 12px 14px; }
+        .alert-item h5 { margin: 0 0 4px 0; font-size: 0.9rem; color: var(--text); }
+        .alert-item p { margin: 0; color: var(--muted); font-size: 0.75rem; }
+        .alert-item.danger { border-left-color: var(--danger); }
+        .alert-item.success { border-left-color: var(--success); }
+
+        .hardware-panel { display: grid; gap: 12px; margin-top: 18px; }
+        .hardware-box { background: rgba(15, 23, 42, 0.72); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+        .hardware-box label { display: block; color: var(--muted); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+        .hardware-box input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 10px; color: var(--text); padding: 10px 12px; }
+        .hardware-box .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+        .hardware-box .chip { flex: 1; min-width: 110px; }
+        #hardwareStatus { color: #dfeafc; font-weight: 700; margin-top: 12px; min-height: 20px; }
+        #pairedDevices { display: grid; gap: 8px; margin-top: 12px; }
+        .paired-device { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(148,163,184,0.1); }
+        .paired-device small { color: var(--muted); }
+
+        .history-panel { margin-top: 12px; }
+        .history-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+        .history-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(148,163,184,0.08); border-radius: 10px; padding: 9px 10px; color: var(--text); font-size: 0.82rem; }
+        .history-item span { color: var(--muted); display: inline-block; margin-right: 8px; }
+
+        @media (max-width: 760px) { .metrics { grid-template-columns: repeat(2, minmax(140px, 1fr)); } .content { grid-template-columns: 1fr; } .info-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 460px) { body { padding-left: 12px; padding-right: 12px; padding-bottom: 90px; } .metrics { grid-template-columns: 1fr; } .topbar { align-items: flex-start; flex-direction: column; } .nav-item { padding: 6px 10px; font-size: 0.65rem; } .nav-icon { font-size: 1.1rem; } }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div id="dashboardPage" class="page active">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="brand-mark" aria-hidden="true"></div>
+                    <div><h1>MCU Control</h1><small>Dashboard</small></div>
+                </div>
+                <div id="connectionPill" class="status-pill"><span class="status-dot"></span>System Online</div>
+            </div>
+
+            <section class="hero">
+                <div class="hero-row">
+                    <div>
+                        <span class="eyebrow">Mission status</span>
+                        <h2 id="heroTitle">System health is stable.</h2>
+                        <div id="heroSub" class="hero-sub">Intake, synchronization, and hardware checks are running within target thresholds.</div>
+                    </div>
+                </div>
+                <div class="hero-actions">
+                    <button class="primary-btn" type="button" id="startCycleBtn">Start Cycle</button>
+                    <button class="secondary-btn" type="button" id="diagnosticBtn">Diagnostics</button>
+                    <button class="danger-btn" type="button" id="powerBtn">Power</button>
+                </div>
+                <div class="metrics">
+                    <div class="metric"><div class="label">CPU</div><div id="cpuValue" class="value">63%</div><div class="trend"><span class="up">▲ 4.2%</span> vs last hour</div></div>
+                    <div class="metric"><div class="label">Memory</div><div id="memoryValue" class="value">74%</div><div class="trend"><span class="down">▼ 1.8%</span> vs last hour</div></div>
+                    <div class="metric"><div class="label">Thermal</div><div id="tempValue" class="value">44°C</div><div class="trend"><span class="up">▲ 2.1°C</span> current rise</div></div>
+                    <div class="metric"><div class="label">Uptime</div><div id="uptimeValue" class="value">19h 42m</div><div class="trend"><span class="up">▲ 1.4%</span> stability</div></div>
+                </div>
+            </section>
+
+            <div class="content">
+                <section class="panel">
+                    <div class="panel-header"><h3>Performance</h3><span class="panel-link">View</span></div>
+                    <div class="chart">
+                        <div class="bar-wrap"><div class="bar" style="height: 32%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 46%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 58%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 63%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 72%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 81%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 76%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 90%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 86%;"></div></div>
+                        <div class="bar-wrap"><div class="bar" style="height: 94%;"></div></div>
+                    </div>
+                </section>
+
+                <aside class="panel">
+                    <div class="panel-header"><h3>System</h3><span class="panel-link">Live</span></div>
+                    <div class="stack">
+                        <div class="status-row"><strong>Core bus</strong><span class="tag success">Stable</span></div>
+                        <div class="status-row"><strong>Signal lock</strong><span class="tag success">Good</span></div>
+                        <div class="status-row"><strong>Power draw</strong><span class="tag warning">Watch</span></div>
+                    </div>
+                </aside>
+            </div>
+
+            <div class="content" style="margin-top: 18px;">
+                <section class="panel">
+                    <div class="panel-header"><h3>Runtime Details</h3><span class="panel-link">Updated</span></div>
+                    <ul class="mini-list">
+                        <li><span>Firmware</span><span>v2.8.4</span></li>
+                        <li><span>Network</span><span id="networkState">Connected</span></li>
+                        <li><span>Sync queue</span><span>12 tasks</span></li>
+                        <li><span>Last reboot</span><span>2 days ago</span></li>
+                    </ul>
+                    <div class="info-grid">
+                        <div class="device-card"><strong>Device</strong><div class="big">MCU-01</div><div class="sub">Adaptive control node</div></div>
+                        <div class="device-card"><strong>Mode</strong><div id="powerMode" class="big">Ready</div><div class="sub">Command channel stable</div></div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header"><h3>Activity Log</h3><span class="panel-link">Trail</span></div>
+                    <ul class="log-list">
+                        <li><span class="log-bullet"></span><span>Core cycle completed</span><span class="log-time">9:42</span></li>
+                        <li><span class="log-bullet"></span><span>Diagnostics scan passed</span><span class="log-time">9:21</span></li>
+                        <li><span class="log-bullet"></span><span>Telemetry synchronized</span><span class="log-time">8:59</span></li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+
+        <div id="devicesPage" class="page">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="brand-mark" aria-hidden="true"></div>
+                    <div><h1>MCU Control</h1><small>Hardware</small></div>
+                </div>
+            </div>
+
+            <section class="hero">
+                <span class="eyebrow">Bluetooth control</span>
+                <h2 id="deviceNameText">Connect an MCU device</h2>
+                <div class="hero-sub">Use the pairing data below to connect an HC-05 / HC-06 / compatible serial MCU device over Bluetooth Classic.</div>
+            </section>
+
+            <section class="hardware-panel">
+                <div class="hardware-box">
+                    <label>Bluetooth MAC Address</label>
+                    <input id="deviceAddressInput" type="text" placeholder="00:11:22:33:44:55" value="98:D3:61:FD:9F:9B" />
+                    <div class="row">
+                        <button class="primary-btn chip" id="connectDeviceBtn">Connect</button>
+                        <button class="secondary-btn chip" id="refreshDeviceBtn">Refresh</button>
+                        <button class="danger-btn chip" id="disconnectDeviceBtn">Disconnect</button>
+                    </div>
+                    <div id="hardwareStatus">Hardware status: idle</div>
+                </div>
+
+                <div class="hardware-box">
+                    <label>Command Actions</label>
+                    <div class="row">
+                        <button class="primary-btn chip" data-command="START">Start</button>
+                        <button class="secondary-btn chip" data-command="STATUS">Status</button>
+                        <button class="secondary-btn chip" data-command="POWER">Power</button>
+                        <button class="danger-btn chip" data-command="STOP">Stop</button>
+                    </div>
+                </div>
+
+                <div class="hardware-box">
+                    <label>Paired Devices</label>
+                    <div id="pairedDevices"></div>
+                </div>
+
+                <div class="hardware-box history-panel">
+                    <label>Command History</label>
+                    <ul id="historyList" class="history-list"></ul>
+                </div>
+            </section>
+        </div>
+
+        <div id="alertsPage" class="page">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="brand-mark" aria-hidden="true"></div>
+                    <div><h1>MCU Control</h1><small>System Alerts</small></div>
+                </div>
+            </div>
+
+            <section class="hero">
+                <span class="eyebrow">Alert Status</span>
+                <h2>3 Active Alerts</h2>
+                <div class="hero-sub">Review the latest system events and recommended actions below.</div>
+            </section>
+
+            <section class="panel" style="margin-top: 18px;">
+                <div class="panel-header"><h3>Recent Events</h3><span class="panel-link">Clear All</span></div>
+                <div class="alert-list">
+                    <div class="alert-item warning"><h5>⚠️ High CPU Usage Detected</h5><p>CPU load reached 87% at 09:42. Current load: 63%. Consider optimizing task scheduling.</p></div>
+                    <div class="alert-item"><h5>ℹ️ Scheduled Maintenance</h5><p>System maintenance window scheduled for tomorrow at 02:00 UTC. Duration: ~30 minutes.</p></div>
+                    <div class="alert-item success"><h5>✓ Diagnostics Complete</h5><p>Full system diagnostics passed at 09:21. All subsystems nominal.</p></div>
+                    <div class="alert-item"><h5>ℹ️ Firmware Update Available</h5><p>New firmware version v2.8.5 is available. Current: v2.8.4. Review release notes before updating.</p></div>
+                </div>
+            </section>
+        </div>
+
+        <div id="settingsPage" class="page">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="brand-mark" aria-hidden="true"></div>
+                    <div><h1>MCU Control</h1><small>Settings</small></div>
+                </div>
+            </div>
+
+            <section class="hero">
+                <span class="eyebrow">Configuration</span>
+                <h2>App Settings</h2>
+                <div class="hero-sub">Configure your MCU dashboard and system preferences.</div>
+            </section>
+
+            <section class="panel" style="margin-top: 18px;">
+                <div class="panel-header"><h3>General</h3></div>
+                <div class="settings-grid">
+                    <div class="setting-item"><h4>Device Name</h4><p>The name of this MCU device on your network.</p><input type="text" value="MCU-01" placeholder="Device name" /></div>
+                    <div class="setting-item"><h4>Update Interval</h4><p>How often metrics are refreshed (in seconds).</p><input type="number" value="5" min="1" max="60" placeholder="Seconds" /></div>
+                    <div class="setting-item"><h4>Theme</h4><p>Choose your preferred UI theme.</p><select><option selected>Dark (Default)</option><option>Light</option><option>Auto</option></select></div>
+                    <div class="setting-item"><h4>Alert Volume</h4><p>Enable or disable alert notifications.</p><select><option selected>Enabled</option><option>Disabled</option><option>Silent</option></select></div>
+                </div>
+
+                <h3 style="margin-top: 24px; margin-bottom: 14px; color: #dfeafc;">Network</h3>
+                <div class="settings-grid">
+                    <div class="setting-item"><h4>API Endpoint</h4><p>The server address for MCU communication.</p><input type="text" value="192.168.1.1:8080" placeholder="IP:Port" /></div>
+                    <div class="setting-item"><h4>Connection Timeout</h4><p>Maximum time to wait for response (ms).</p><input type="number" value="5000" min="1000" max="30000" placeholder="Milliseconds" /></div>
+                </div>
+
+                <div class="hero-actions" style="margin-top: 24px;">
+                    <button class="primary-btn">Save Settings</button>
+                    <button class="secondary-btn">Reset to Defaults</button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="nav-bar">
+        <button class="nav-item active" data-page="dashboardPage"><span class="nav-icon">📊</span>Dashboard</button>
+        <button class="nav-item" data-page="devicesPage"><span class="nav-icon">📱</span>Hardware</button>
+        <button class="nav-item" data-page="alertsPage"><span class="nav-icon">🔔</span>Alerts</button>
+        <button class="nav-item" data-page="settingsPage"><span class="nav-icon">⚙️</span>Settings</button>
+    </div>
+
+    <script>
+        const historyList = document.getElementById('historyList');
+        const commandHistory = [];
+
+        function renderHistory() {
+            if (!historyList) return;
+            historyList.innerHTML = '';
+            commandHistory.slice(0, 8).forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerHTML = '<span>' + item.type + '</span>' + item.message;
+                historyList.appendChild(li);
+            });
+        }
+
+        window.addHistoryEntry = function(message, type) {
+            const normalizedType = (type || 'SYSTEM').toUpperCase();
+            commandHistory.unshift({ type: normalizedType, message: message });
+            if (commandHistory.length > 12) commandHistory.pop();
+            renderHistory();
+        };
+
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-page') === pageId));
+        }
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => switchPage(item.getAttribute('data-page')));
+        });
+
+        const connectionPill = document.getElementById('connectionPill');
+        const heroTitle = document.getElementById('heroTitle');
+        const heroSub = document.getElementById('heroSub');
+        const networkState = document.getElementById('networkState');
+        const powerMode = document.getElementById('powerMode');
+        const hardwareStatus = document.getElementById('hardwareStatus');
+        const deviceNameText = document.getElementById('deviceNameText');
+        const pairedDevices = document.getElementById('pairedDevices');
+
+        function updateConnectionState(text) {
+            connectionPill.innerHTML = '<span class="status-dot"></span>' + text;
+            networkState.textContent = text;
+            if (text === 'Connected') {
+                connectionPill.style.borderColor = 'rgba(52, 211, 153, 0.35)';
+                connectionPill.style.background = 'rgba(16, 185, 129, 0.09)';
+                connectionPill.style.color = '#c9f9df';
+            } else if (text === 'Reconnecting') {
+                connectionPill.style.borderColor = 'rgba(251, 191, 36, 0.35)';
+                connectionPill.style.background = 'rgba(251, 191, 36, 0.09)';
+                connectionPill.style.color = '#fde9b1';
+            } else {
+                connectionPill.style.borderColor = 'rgba(248, 113, 113, 0.35)';
+                connectionPill.style.background = 'rgba(248, 113, 113, 0.08)';
+                connectionPill.style.color = '#f9c5c5';
+            }
+        }
+
+        function setPairedDevices(devices) {
+            pairedDevices.innerHTML = '';
+            if (!devices || !devices.length) {
+                pairedDevices.innerHTML = '<div class="paired-device"><div><strong>No paired devices</strong><small>Pair a Bluetooth module first</small></div></div>';
+                return;
+            }
+            devices.forEach(device => {
+                const row = document.createElement('div');
+                row.className = 'paired-device';
+                row.innerHTML = '<div><strong>' + device.name + '</strong><small>' + device.address + '</small></div><button class="secondary-btn" data-address="' + device.address + '" style="padding:8px 10px;">Use</button>';
+                row.querySelector('button').addEventListener('click', () => {
+                    document.getElementById('deviceAddressInput').value = device.address;
+                    if (window.AndroidBridge) window.AndroidBridge.connectDevice(device.address);
+                });
+                pairedDevices.appendChild(row);
+            });
+        }
+
+        window.setPairedDevices = setPairedDevices;
+
+        window.updateHardwareStatus = function(text) {
+            hardwareStatus.textContent = 'Hardware status: ' + text;
+            if (text && text.indexOf('Connected') !== -1) {
+                updateConnectionState('Connected');
+            }
+        };
+
+        window.setConnectedDeviceName = function(name) {
+            deviceNameText.textContent = name === 'None' ? 'Connect an MCU device' : 'Connected: ' + name;
+        };
+
+        window.onHardwareMessage = function(message) {
+            const value = (message || '').trim();
+            if (!value) return;
+            hardwareStatus.textContent = 'Hardware status: packet received — ' + value;
+            window.addHistoryEntry('RX: ' + value, 'RX');
+        };
+
+        function runCycle() {
+            heroTitle.textContent = 'Cycle executed successfully.';
+            heroSub.textContent = 'The MCU process completed a clean synchronization pass and the status queue is optimized.';
+            if (window.AndroidBridge) AndroidBridge.showToast('Cycle executed successfully');
+        }
+
+        function togglePowerState() {
+            const current = powerMode.textContent.trim();
+            if (current === 'Ready') {
+                powerMode.textContent = 'Standby';
+                heroTitle.textContent = 'System entered standby.';
+                heroSub.textContent = 'Power is reduced while the modules wait for the next wake event.';
+                updateConnectionState('Standby');
+            } else {
+                powerMode.textContent = 'Ready';
+                heroTitle.textContent = 'System health is stable.';
+                heroSub.textContent = 'Intake, synchronization, and hardware checks are running within target thresholds.';
+                updateConnectionState('Connected');
+            }
+            if (window.AndroidBridge) AndroidBridge.showToast('Power state updated');
+        }
+
+        window.runCycle = runCycle;
+        window.togglePowerState = togglePowerState;
+
+        document.getElementById('startCycleBtn').addEventListener('click', function() {
+            if (window.AndroidBridge) AndroidBridge.triggerCycle(); else runCycle();
+        });
+
+        document.getElementById('diagnosticBtn').addEventListener('click', function() {
+            updateConnectionState('Reconnecting');
+            heroTitle.textContent = 'Diagnostics running.';
+            heroSub.textContent = 'Validating bus integrity, power tolerances, and telemetry health targets.';
+            if (window.AndroidBridge) AndroidBridge.showToast('Diagnostics started');
+        });
+
+        document.getElementById('powerBtn').addEventListener('click', function() {
+            if (window.AndroidBridge) AndroidBridge.togglePower(); else togglePowerState();
+        });
+
+        document.getElementById('connectDeviceBtn').addEventListener('click', function() {
+            const address = document.getElementById('deviceAddressInput').value.trim();
+            if (window.AndroidBridge) {
+                window.addHistoryEntry('Attempting connection to ' + address, 'SYSTEM');
+                AndroidBridge.connectDevice(address);
+            }
+        });
+
+        document.getElementById('disconnectDeviceBtn').addEventListener('click', function() {
+            if (window.AndroidBridge) AndroidBridge.disconnectDevice();
+        });
+
+        document.getElementById('refreshDeviceBtn').addEventListener('click', function() {
+            if (window.AndroidBridge) AndroidBridge.refreshHardware();
+        });
+
+        document.querySelectorAll('[data-command]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const cmd = this.getAttribute('data-command');
+                window.addHistoryEntry('Command queued: ' + cmd, 'SYSTEM');
+                if (window.AndroidBridge) AndroidBridge.sendCommand(cmd);
+                else {
+                    hardwareStatus.textContent = 'Hardware status: simulated command — ' + cmd;
+                    setTimeout(() => {
+                        window.addHistoryEntry('RX: ACK:' + cmd, 'RX');
+                    }, 400);
+                }
+            });
+        });
+
+        function loadPairedDevices() {
+            if (window.AndroidBridge) {
+                try {
+                    const data = JSON.parse(AndroidBridge.getPairedDevices() || '[]');
+                    setPairedDevices(data);
+                } catch (e) {
+                    setPairedDevices([]);
+                }
+            }
+        }
+
+        if (window.AndroidBridge) {
+            window.AndroidBridge.connectSystem();
+            loadPairedDevices();
+        }
+
+        function animateMetrics() {
+            const values = [
+                { id: 'cpuValue', start: 58, end: 63, suffix: '%', step: 1 },
+                { id: 'memoryValue', start: 71, end: 74, suffix: '%', step: 1 },
+                { id: 'tempValue', start: 40, end: 44, suffix: '°C', step: 1 },
+                { id: 'uptimeValue', start: 18, end: 19, suffix: 'h 42m', step: 1 }
+            ];
+            values.forEach(item => {
+                const el = document.getElementById(item.id);
+                if (!el) return;
+                let current = item.start;
+                const timer = setInterval(() => {
+                    current += item.step;
+                    if ((item.step > 0 && current >= item.end) || (item.step < 0 && current <= item.end)) {
+                        current = item.end; clearInterval(timer);
+                    }
+                    el.textContent = current + ' ' + item.suffix;
+                }, 150);
+            });
+        }
+
+        renderHistory();
+        animateMetrics();
+        updateConnectionState('Connected');
+    </script>
+</body>
+</html>
