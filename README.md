@@ -1,21 +1,28 @@
-# MCU-APP Android project
+# MCU-APP Android Project
 
-This project was set up as a working Android app skeleton for the existing `MainActivity.java`.
+This project is set up as a production-style Android shell for a smart MCU control dashboard.
 
-Structure:
+Included features:
+- Android app skeleton with modern Gradle config
+- WebView-based interface loaded from local assets
+- Dark premium dashboard UI
+- Live-style metrics and performance chart
+- Interactive buttons for cycle start, diagnostics, and power state
+- JavaScript-to-Android bridge for app actions
+
+Project structure:
 - `settings.gradle`
 - `build.gradle`
 - `gradle.properties`
 - `app/build.gradle`
 - `app/src/main/AndroidManifest.xml`
 - `app/src/main/java/com/mcu/union/MainActivity.java`
-- `app/src/main/res/layout/activity_main.xml`
 - `app/src/main/assets/index.html`
 
-How to open:
-1. Open this folder in Android Studio.
+Run steps:
+1. Open the repo in Android Studio.
 2. Let Gradle sync complete.
 3. Choose a device or emulator.
-4. Run the app.
+4. Press Run.
 
-The app loads `file:///android_asset/index.html` from the local assets folder and shows a basic working screen.
+This app loads `file:///android_asset/index.html` and presents a live MCU dashboard interface.
